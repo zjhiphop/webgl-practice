@@ -1,0 +1,185 @@
+<html>
+    <head>
+        <title>Clear Canvas</title>
+        <script type="text/javascript" src="../utils/webgl-utils.js"></script>
+        <script type="text/javascript" src="../utils/webgl-debug.js"></script>
+        <script type="text/javascript" src="../utils/cuon-utils.js"></script>
+    </head>
+    <body>
+        <canvas id="webgl" width="300" height="300"></canvas>
+        <script>
+            /*
+                Rotate:
+
+                x'= xcos∆ - ysin∆
+                y'= xsin∆ + ycos∆
+                z'= 1
+
+                Translate:
+
+                x' = x + t1
+                y' = y + t2
+                z' = z + t3
+                
+                Scale:
+
+                x' = x * s1
+                y' = y * s2
+                z' =  z * s3
+
+                => 
+
+                Rotate 
+                x'     cos∆  -sin∆  0  0      x
+                y'  =  sin∆  cos∆   0  0  x   y
+                z'     0     0      1  0      z
+                w'     0     0      0  1      w
+
+                Translate 
+                x'     1  0  0  t1     x
+                y'  =  0  1  0  t2  x  y
+                z'     0  0  1  t3     z
+                1      0  0  0  1      1 
+
+                Scale:
+                x'     s1  0  0 0     x
+                y'  =  0  s2  0 0  x  y
+                z'     0  0  s3 0     z
+                1      0  0  0  1     1 
+            */
+
+            // 顶点着色器
+            const VSHADER_SOURCE = `
+                attribute vec4 a_Position;
+                uniform mat4 u_xformMatrix;
+                uniform mat4 u_transMatrix;
+                void main() {
+                    gl_Position = u_transMatrix * (u_xformMatrix * a_Position);
+                }
+            `
+
+            // 片元着色器
+            const FSHADER_SOURCE = `
+               void main() {
+                   gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0); // 颜色
+               }
+            `
+
+            function main() {
+                const canvas = document.getElementById("webgl");
+
+                const gl = getWebGLContext(canvas);
+
+                if(!gl) {
+                    return alert('Failed to render webgl context');
+                }
+
+                if(!initShaders(gl, VSHADER_SOURCE, FSHADER_SOURCE)) {
+                    return alert("Failed to init shader!")
+                }
+
+                // init buffer to store multiple points 
+                const n = initVerticalBuffer(gl)
+
+                if(n<0) {
+                    return alert("Failed to init vertices buffer")
+                }
+
+                const angle = Math.PI / 180.0 * 30.0
+                const cosB = Math.cos(angle)
+                const sinB = Math.sin(angle)
+
+                // const u_CosB = gl.getUniformLocation(gl.program, "u_CosB")
+                // const u_SinB = gl.getUniformLocation(gl.program, "u_SinB")
+
+                // if(!u_CosB || !u_SinB) {
+                //     return alert('Failed to get the storage of uniform locations')
+                // }
+
+                // gl.uniform1f(u_SinB, sinB);
+                // gl.uniform1f(u_CosB, cosB);
+
+                const xformMatrix = new Float32Array([
+                    cosB, sinB, 0, 0,
+                    -sinB, cosB, 0, 0, 
+                    0, 0, 1, 0,
+                    0, 0, 0, 1
+                ]);
+
+                const transMatrix = new Float32Array([
+                    1, 0, 0, 0,
+                    0, 1, 0, 0, 
+                    0, 0, 1, 0,
+                    0.1, 0.2, 0, 1
+                ]);
+
+                // pass rotate matrix to vertex shader
+                const u_xformMatrix = gl.getUniformLocation(gl.program, "u_xformMatrix");
+
+                if(!u_xformMatrix) {
+                    return alert('Failed to get uniform of u_xformMatrix')
+                }
+
+                const u_transMatrix = gl.getUniformLocation(gl.program, "u_transMatrix");
+
+                if(!u_transMatrix) {
+                    return alert('Failed to get uniform of u_transMatrix')
+                }
+
+                gl.uniformMatrix4fv(u_xformMatrix, false, xformMatrix)
+                gl.uniformMatrix4fv(u_transMatrix, false, transMatrix)
+               
+                // Specify the color for clearing <canvas>
+                gl.clearColor(0, 0, 0, 1);
+
+                // Clear <canvas>
+                gl.clear(gl.COLOR_BUFFER_BIT);
+
+                // 绘制多个点
+                gl.drawArrays(gl.TRIANGLES, 0, n)
+            }
+
+
+            function initVerticalBuffer(gl) {
+                // init vertices
+                const vertices = new Float32Array([
+                    0.0, 0.5,  -0.5, -0.5,  0.5, -0.5
+                ]);
+                const n = 3;
+
+                // create buffer 
+                const vertBuffer = gl.createBuffer();
+
+                if(!vertBuffer) {
+                    console.log("Vertex buffer create failed!");
+
+                    return -1;
+                }
+
+                // bind buffer 
+                gl.bindBuffer(gl.ARRAY_BUFFER, vertBuffer);
+
+                // assign buffer data
+                gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+                // get gl variables
+                const a_Position = gl.getAttribLocation(gl.program, 'a_Position');
+                if(a_Position < 0) {
+                    console.log('Failed to get storage location "a_Position"');
+
+                    return -1;
+                }
+
+                // Assign the buffer object ot a_Position variable
+                gl.vertexAttribPointer(a_Position, 2, gl.FLOAT,false, 0, 0)
+
+                // enable buffer
+                gl.enableVertexAttribArray(a_Position)
+
+                return n
+            }
+
+            main()
+        </script>
+    </body>
+</html>  

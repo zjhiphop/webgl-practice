@@ -1,0 +1,151 @@
+<html>
+    <head>
+        <title>Clear Canvas</title>
+        <script type="text/javascript" src="../utils/webgl-utils.js"></script>
+        <script type="text/javascript" src="../utils/webgl-debug.js"></script>
+        <script type="text/javascript" src="../utils/cuon-utils.js"></script>
+    </head>
+    <body>
+        <canvas id="webgl" width="300" height="300"></canvas>
+        <script>
+            /*
+
+            两角和公式
+
+                sin(A+B) = sinAcosB+cosAsinB
+
+                sin(A-B) = sinAcosB-cosAsinB
+
+                cos(A+B) = cosAcosB-sinAsinB
+
+                cos(A-B) = cosAcosB+sinAsinB
+
+                tan(A+B) = (tanA+tanB)/(1-tanAtanB)
+
+                tan(A-B) = (tanA-tanB)/(1+tanAtanB)
+
+                cot(A+B) = (cotAcotB-1)/(cotB+cotA)
+
+                cot(A-B) = (cotAcotB+1)/(cotB-cotA)
+            
+            初始：
+                x = r * cosA
+                y = r * sinA
+                
+                x' = r * cos(A+∆)
+                y' = r * sin(A+∆)
+
+                -> 
+
+                x' = r * cos(A+∆) = x/cosA * cosAcos∆ -  y/sinA * sinAsin∆) = xcos∆ - ysin∆
+                y' = r * sin(A+∆) = y/sinA * sinAcos∆ +  x/cosA * cosAsin∆) = ycos∆ + xsin∆
+
+            */
+
+            // 顶点着色器
+            const VSHADER_SOURCE = `
+                attribute vec4 a_Position;
+                uniform float u_CosB, u_SinB;
+                void main() {
+                    gl_Position.x = a_Position.x * u_CosB - a_Position.y * u_SinB;
+                    gl_Position.y = a_Position.y * u_CosB + a_Position.x * u_SinB;
+                    gl_Position.z = a_Position.z;
+                    gl_Position.w = a_Position.w;
+                }
+            `
+
+            // 片元着色器
+            const FSHADER_SOURCE = `
+               void main() {
+                   gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0); // 颜色
+               }
+            `
+
+            function main() {
+                const canvas = document.getElementById("webgl");
+
+                const gl = getWebGLContext(canvas);
+
+                if(!gl) {
+                    return alert('Failed to render webgl context');
+                }
+
+                if(!initShaders(gl, VSHADER_SOURCE, FSHADER_SOURCE)) {
+                    return alert("Failed to init shader!")
+                }
+
+                // init buffer to store multiple points 
+                const n = initVerticalBuffer(gl)
+
+                if(n<0) {
+                    return alert("Failed to init vertices buffer")
+                }
+
+                const angle = Math.PI / 180.0 * 30.0
+                const cosB = Math.cos(angle)
+                const sinB = Math.sin(angle)
+
+                const u_CosB = gl.getUniformLocation(gl.program, "u_CosB")
+                const u_SinB = gl.getUniformLocation(gl.program, "u_SinB")
+
+                if(!u_CosB || !u_SinB) {
+                    return alert('Failed to get the storage of uniform locations')
+                }
+
+                gl.uniform1f(u_SinB, sinB);
+                gl.uniform1f(u_CosB, cosB);
+               
+                // Specify the color for clearing <canvas>
+                gl.clearColor(0, 0, 0, 1);
+
+                // Clear <canvas>
+                gl.clear(gl.COLOR_BUFFER_BIT);
+
+                // 绘制多个点
+                gl.drawArrays(gl.TRIANGLES, 0, n)
+            }
+
+
+            function initVerticalBuffer(gl) {
+                // init vertices
+                const vertices = new Float32Array([
+                    0.0, 0.5,  -0.5, -0.5,  0.5, -0.5
+                ]);
+                const n = 3;
+
+                // create buffer 
+                const vertBuffer = gl.createBuffer();
+
+                if(!vertBuffer) {
+                    console.log("Vertex buffer create failed!");
+
+                    return -1;
+                }
+
+                // bind buffer 
+                gl.bindBuffer(gl.ARRAY_BUFFER, vertBuffer);
+
+                // assign buffer data
+                gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+                // get gl variables
+                const a_Position = gl.getAttribLocation(gl.program, 'a_Position');
+                if(a_Position < 0) {
+                    console.log('Failed to get storage location "a_Position"');
+
+                    return -1;
+                }
+
+                // Assign the buffer object ot a_Position variable
+                gl.vertexAttribPointer(a_Position, 2, gl.FLOAT,false, 0, 0)
+
+                // enable buffer
+                gl.enableVertexAttribArray(a_Position)
+
+                return n
+            }
+
+            main()
+        </script>
+    </body>
+</html>  

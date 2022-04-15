@@ -1,0 +1,110 @@
+<html>
+    <head>
+        <title>Clear Canvas</title>
+        <script type="text/javascript" src="../utils/webgl-utils.js"></script>
+        <script type="text/javascript" src="../utils/webgl-debug.js"></script>
+        <script type="text/javascript" src="../utils/cuon-utils.js"></script>
+    </head>
+    <body>
+        <canvas id="webgl" width="300" height="300"></canvas>
+        <script>
+            // 顶点着色器
+            const VSHADER_SOURCE = `
+                attribute vec4 a_Position;
+                uniform vec4 u_Translation;
+                void main() {
+                    gl_Position = a_Position + u_Translation; // 设置坐标
+                }
+            `
+
+            // 片元着色器
+            const FSHADER_SOURCE = `
+               void main() {
+                   gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0); // 颜色
+               }
+            `
+            
+            const tx = 0.5, ty=0.5, tz=0;
+
+            function main() {
+                const canvas = document.getElementById("webgl");
+
+                const gl = getWebGLContext(canvas);
+
+                if(!gl) {
+                    return alert('Failed to render webgl context');
+                }
+
+                if(!initShaders(gl, VSHADER_SOURCE, FSHADER_SOURCE)) {
+                    return alert("Failed to init shader!")
+                }
+
+                // init buffer to store multiple points 
+                const n = initVerticalBuffer(gl)
+
+                if(n<0) {
+                    return alert("Failed to init vertices buffer")
+                }
+
+                const u_Translation = gl.getUniformLocation(gl.program, "u_Translation")
+
+                if(!u_Translation) {
+                    return alert('Failed to get the storage of uniform locations')
+                }
+
+                gl.uniform4f(u_Translation, tx, ty, tz, 0.0);
+               
+                // Specify the color for clearing <canvas>
+                gl.clearColor(0, 0, 0, 1);
+
+                // Clear <canvas>
+                gl.clear(gl.COLOR_BUFFER_BIT);
+
+                // 绘制多个点
+                gl.drawArrays(gl.TRIANGLES, 0, n)
+            }
+
+
+            function initVerticalBuffer(gl) {
+                // init vertices
+                const vertices = new Float32Array([
+                    0.0, 0.5,  -0.5, -0.5,  0.5, -0.5
+                ]);
+                const n = 3;
+
+                // create buffer 
+                const vertBuffer = gl.createBuffer();
+
+                if(!vertBuffer) {
+                    console.log("Vertex buffer create failed!");
+
+                    return -1;
+                }
+
+                // bind buffer 
+                gl.bindBuffer(gl.ARRAY_BUFFER, vertBuffer);
+
+                // assign buffer data
+                gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+                // get gl variables
+                const a_Position = gl.getAttribLocation(gl.program, 'a_Position');
+                if(a_Position < 0) {
+                    console.log('Failed to get storage location "a_Position"');
+
+                    return -1;
+                }
+
+                // Assign the buffer object ot a_Position variable
+                gl.vertexAttribPointer(a_Position, 2, gl.FLOAT,false, 0, 0)
+
+                // enable buffer
+                gl.enableVertexAttribArray(a_Position)
+
+                return n
+            }
+
+            main()
+        </script>
+    </body>
+</html>  

@@ -1,0 +1,158 @@
+<html>
+  <head>
+    <title>Clear Canvas</title>
+    <script type="text/javascript" src="../utils/webgl-utils.js"></script>
+    <script type="text/javascript" src="../utils/webgl-debug.js"></script>
+    <script type="text/javascript" src="../utils/cuon-utils.js"></script>
+    <script type="text/javascript" src="../utils/cuon-matrix.js"></script>
+    <style>
+        button {
+            cursor: pointer;
+            display: inline-block;
+            margin-top:50px;
+        }
+    </style>
+  </head>
+  <body>
+    <canvas id="webgl" width="300" height="300"></canvas>
+    <div>
+        <button onclick="up()">UP</button>
+        <button onclick="down()">DOWN</button>
+    </div>
+    <script>
+      // 顶点着色器
+      const VSHADER_SOURCE = `
+                attribute vec4 a_Position;
+                uniform mat4 u_Matrix;
+                void main() {
+                    gl_Position = u_Matrix * a_Position;
+                }
+            `;
+
+      // 片元着色器
+      const FSHADER_SOURCE = `
+               void main() {
+                   gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0); // 颜色
+               }
+            `;
+
+      function main() {
+        const canvas = document.getElementById("webgl");
+
+        const gl = getWebGLContext(canvas);
+
+        if (!gl) {
+          return alert("Failed to render webgl context");
+        }
+
+        if (!initShaders(gl, VSHADER_SOURCE, FSHADER_SOURCE)) {
+          return alert("Failed to init shader!");
+        }
+
+        // init buffer to store multiple points
+        const n = initVerticalBuffer(gl);
+
+        if (n < 0) {
+          return alert("Failed to init vertices buffer");
+        }
+
+        const matrix4 = new Matrix4();
+        const u_Matrix = gl.getUniformLocation(gl.program, "u_Matrix");
+
+        if (!u_Matrix) {
+          return alert("Failed to get uniform u_Matrix");
+        }
+
+        // Current rotation angle
+        var currentAngle = 0.0;
+
+        function update() {
+          currentAngle = animate(currentAngle);
+          draw(gl, n, currentAngle, matrix4, u_Matrix);
+
+          requestAnimationFrame(update, 1000);
+        }
+
+        update()
+      }
+
+      function draw(gl, numberOfVert, angle, matrix4, u_Matrix) {
+        matrix4.setRotate(angle, 0,0,1)
+            .translate(0.35, 0, 0);
+ 
+        // Pass the rotation matrix to the vertex shader
+        gl.uniformMatrix4fv(u_Matrix, false, matrix4.elements);
+
+        // Specify the color for clearing <canvas>
+        gl.clearColor(0, 0, 0, 1);
+
+        // Clear <canvas>
+        gl.clear(gl.COLOR_BUFFER_BIT);
+
+        // 绘制多个点
+        gl.drawArrays(gl.TRIANGLES, 0, numberOfVert);
+      }
+
+      // Rotation angle (degrees/second)
+      var ANGLE_STEP = 45.0;
+      // Last time that this function was called
+      var g_last = Date.now();
+      function animate(angle) {
+        // Calculate the elapsed time
+        var now = Date.now();
+        var elapsed = now - g_last;
+        g_last = now;
+        // Update the current rotation angle (adjusted by the elapsed time)
+        var newAngle = angle + (ANGLE_STEP * elapsed) / 1000.0;
+        return (newAngle %= 360);
+      }
+
+      function up() {
+        ANGLE_STEP += 10;
+      }
+
+      function down() {
+        ANGLE_STEP -= 10;
+      }
+
+      function initVerticalBuffer(gl) {
+        // init vertices
+        const vertices = new Float32Array([0.0, 0.5, -0.5, -0.5, 0.5, -0.5]);
+        const n = 3;
+
+        // create buffer
+        const vertBuffer = gl.createBuffer();
+
+        if (!vertBuffer) {
+          console.log("Vertex buffer create failed!");
+
+          return -1;
+        }
+
+        // bind buffer
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertBuffer);
+
+        // assign buffer data
+        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+        // get gl variables
+        const a_Position = gl.getAttribLocation(gl.program, "a_Position");
+        if (a_Position < 0) {
+          console.log('Failed to get storage location "a_Position"');
+
+          return -1;
+        }
+
+        // Assign the buffer object ot a_Position variable
+        gl.vertexAttribPointer(a_Position, 2, gl.FLOAT, false, 0, 0);
+
+        // enable buffer
+        gl.enableVertexAttribArray(a_Position);
+
+        return n;
+      }
+
+      main();
+    </script>
+  </body>
+</html>

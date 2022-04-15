@@ -1,0 +1,206 @@
+<html>
+  <head>
+    <title>Clear Canvas</title>
+    <script type="text/javascript" src="../utils/webgl-utils.js"></script>
+    <script type="text/javascript" src="../utils/webgl-debug.js"></script>
+    <script type="text/javascript" src="../utils/cuon-utils.js"></script>
+  </head>
+  <body>
+    <canvas id="webgl" width="300" height="300"></canvas>
+    <script>
+      // MultiAttributeSize_Interleaved.js (c) 2012 matsuda
+      // Vertex shader program
+      var VSHADER_SOURCE = `attribute vec4 a_Position;
+            attribute vec2 a_TexCoord;
+            varying vec2 v_TexCoord;
+
+            void main() {
+              gl_Position = a_Position;
+              v_TexCoord = a_TexCoord;
+            }`;
+
+      // Fragment shader program
+      var FSHADER_SOURCE = `
+            #ifdef GL_ES
+            precision mediump float; // Precision qualifier (See Chapter 6)
+            #endif
+
+            uniform sampler2D u_Sampler1;
+            uniform sampler2D u_Sampler2;
+            varying vec2 v_TexCoord;
+
+            void main() {
+              gl_FragColor = texture2D(u_Sampler1, v_TexCoord) * texture2D(u_Sampler2, v_TexCoord);
+            }`;
+
+      function main() {
+        // Retrieve <canvas> element
+        var canvas = document.getElementById("webgl");
+
+        // Get the rendering context for WebGL
+        var gl = getWebGLContext(canvas);
+        if (!gl) {
+          console.log("Failed to get the rendering context for WebGL");
+          return;
+        }
+
+        // Initialize shaders
+        if (!initShaders(gl, VSHADER_SOURCE, FSHADER_SOURCE)) {
+          console.log("Failed to intialize shaders.");
+          return;
+        }
+
+        // Set vertex coordinates and point sizes
+        var n = initVertexBuffers(gl);
+        if (n < 0) {
+          console.log("Failed to set the vertex information");
+          return;
+        }
+
+        // Specify the color for clearing <canvas>
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+
+        if (!initTextures(gl, n)) {
+          alert("Init texture failed!!");
+        }
+      }
+
+      function initTextures(gl, n) {
+        
+        var texture0 = gl.createTexture(); 
+        var texture1 = gl.createTexture();
+        
+        if (!texture0 || !texture1) {
+          console.log("Failed to create the texture object");
+          return false;
+        }
+
+        // Get the storage location of u_Sampler
+        var u_Sampler1 = gl.getUniformLocation(gl.program, "u_Sampler1");
+        var u_Sampler2 = gl.getUniformLocation(gl.program, "u_Sampler2");
+        if (!u_Sampler1 || !u_Sampler2) {
+          console.log("Failed to get the storage location of u_Sampler1 or u_Sampler2");
+          return false;
+        }
+        var image = new Image(); // Create the image object
+        var image2 = new Image(); // Create the image object
+        if (!image) {
+          console.log("Failed to create the image object");
+          return false;
+        }
+        const promise1 = new Promise(resolve => {
+            // Register the event handler to be called on loading an image
+            image.onload = function () {
+              loadTexture(gl, n, texture0, u_Sampler1, image, 0);
+              resolve()
+            };
+        })
+        const promise2 = new Promise(resolve => {
+            // Register the event handler to be called on loading an image
+            image2.onload = function () {
+              loadTexture(gl, n, texture1, u_Sampler2, image2, 1);
+              resolve()
+            };  
+        })
+
+        Promise.all([promise1, promise2]).then(()=> {
+          gl.drawArrays(gl.TRIANGLE_STRIP, 0, n); // Draw the rectangle
+        })
+       
+        // Tell the browser to load an image
+        image.src = "./sky.jpeg";
+        
+        // Tell the browser to load an image
+        image2.src = "./circle.gif";
+
+        return true;
+      }
+
+      function loadTexture(gl, n, texture, u_Sampler, image, texChannel) {
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1); // Flip the image's y axis
+        // Enable texture unit0
+        gl.activeTexture(texChannel === 0 ? gl.TEXTURE0 : gl.TEXTURE1);
+        // Bind the texture object to the target
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+
+        // Set the texture parameters
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT); // mirror repeat in vertical axis
+        // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);   // clamp to edge in horizontal axis
+        // Set the texture image
+        gl.texImage2D(
+          gl.TEXTURE_2D,
+          0,
+          gl.RGB,
+          gl.RGB,
+          gl.UNSIGNED_BYTE,
+          image
+        );
+
+        // Set the texture unit 0 to the sampler
+        gl.uniform1i(u_Sampler, texChannel);
+
+        gl.clear(gl.COLOR_BUFFER_BIT); // Clear <canvas>
+      }
+
+      function initVertexBuffers(gl) {
+        var verticesTexCoords = new Float32Array([
+          // Vertex coordinates, texture coordinate
+          -0.5, 0.5, 0.0, 1.0, 
+          -0.5, -0.5, 0.0, 0.0, 
+          0.5, 0.5, 1.0, 1.0, 
+          0.5, -0.5, 1.0, 0.0,
+
+        //  loop
+            // -0.5,  0.5,   -0.3, 1.7,
+            // -0.5, -0.5,   -0.3, -0.2,
+            // 0.5,  0.5,   1.7, 1.7,
+            // 0.5, -0.5,   1.7, -0.2
+        ]);
+        var n = 4; // The number of vertices
+
+        // Create the buffer object
+        var vertexTexCoordBuffer = gl.createBuffer();
+        if (!vertexTexCoordBuffer) {
+          console.log("Failed to create the buffer object");
+          return -1;
+        }
+
+        // Bind the buffer object to target
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexTexCoordBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, verticesTexCoords, gl.STATIC_DRAW);
+
+        var FSIZE = verticesTexCoords.BYTES_PER_ELEMENT;
+        //Get the storage location of a_Position, assign and enable buffer
+        var a_Position = gl.getAttribLocation(gl.program, "a_Position");
+        if (a_Position < 0) {
+          console.log("Failed to get the storage location of a_Position");
+          return -1;
+        }
+        gl.vertexAttribPointer(a_Position, 2, gl.FLOAT, false, FSIZE * 4, 0);
+        gl.enableVertexAttribArray(a_Position); // Enable the assignment of the buffer object
+
+        // Get the storage location of a_TexCoord
+        var a_TexCoord = gl.getAttribLocation(gl.program, "a_TexCoord");
+        if (a_TexCoord < 0) {
+          console.log("Failed to get the storage location of a_TexCoord");
+          return -1;
+        }
+        // Assign the buffer object to a_TexCoord variable
+        gl.vertexAttribPointer(
+          a_TexCoord,
+          2,
+          gl.FLOAT,
+          false,
+          FSIZE * 4,
+          FSIZE * 2
+        );
+        gl.enableVertexAttribArray(a_TexCoord); // Enable the assignment of the buffer object
+
+        return n;
+      }
+
+      main();
+    </script>
+  </body>
+</html>

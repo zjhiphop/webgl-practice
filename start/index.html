@@ -1,0 +1,13 @@
+<canvas id="GL"></canvas>
+
+<script>
+    const canvas = document.getElementById('GL');
+    var gGL = canvas.getContext('webgl') || canvas.getContext('experiment-webgl')
+
+    if (gGL != null) {
+        gGL.clearColor(0.0, 0.8, 0.0, 1.0);
+        gGL.clear(gGL.COLOR_BUFFER_BIT);
+    }
+</script>
+
+<script src="VertexBuffer.js"></script>

@@ -1,0 +1,117 @@
+<html>
+    <head>
+        <title>Clear Canvas</title>
+        <script type="text/javascript" src="../utils/webgl-utils.js"></script>
+        <script type="text/javascript" src="../utils/webgl-debug.js"></script>
+        <script type="text/javascript" src="../utils/cuon-utils.js"></script>
+    </head>
+    <body>
+        <canvas id="webgl" width="300" height="300"></canvas>
+        <script>
+            // MultiAttributeSize_Interleaved.js (c) 2012 matsuda
+            // Vertex shader program
+            var VSHADER_SOURCE =
+            `attribute vec4 a_Position;
+            void main() {
+              gl_Position = a_Position;
+            }`;
+
+            // Fragment shader program
+            var FSHADER_SOURCE =
+            `
+            precision mediump float; // Precision qualifier (See Chapter 6)
+            uniform float f_Width;
+            uniform float f_Height;
+            void main() {
+              gl_FragColor = vec4(gl_FragCoord.x / f_Width, 0.0, gl_FragCoord.y / f_Height, 1.0);
+            }`;
+
+            function main() {
+                // Retrieve <canvas> element
+                var canvas = document.getElementById('webgl');
+
+                // Get the rendering context for WebGL
+                var gl = getWebGLContext(canvas);
+                if (!gl) {
+                    console.log('Failed to get the rendering context for WebGL');
+                    return;
+                }
+
+                // Initialize shaders
+                if (!initShaders(gl, VSHADER_SOURCE, FSHADER_SOURCE)) {
+                    console.log('Failed to intialize shaders.');
+                    return;
+                }
+
+                // Set vertex coordinates and point sizes
+                var n = initVertexBuffers(gl);
+                if (n < 0) {
+                    console.log('Failed to set the vertex information');
+                    return;
+                }
+
+                // Specify the color for clearing <canvas>
+                gl.clearColor(0.0, 0.0, 0.0, 1.0);
+
+                // Clear <canvas>
+                gl.clear(gl.COLOR_BUFFER_BIT);
+
+                // Draw three points
+                // gl.drawArrays(gl.POINTS, 0, n);
+                gl.drawArrays(gl.TRIANGLES, 0, n);
+                // gl.drawArrays(gl.LINE_STRIP, 0, n);
+                // gl.drawArrays(gl.LINE_LOOP, 0, n);
+            }
+
+            function initVertexBuffers(gl) {
+                var vertices = new Float32Array([
+                    // Coordinate and size of points
+                    0.0,  0.5, 
+                    -0.5, -0.5,
+                    0.5, -0.5, 
+                ]);
+                var n = 3; // The number of vertices
+
+                // Create a buffer object
+                var vertexSizeBuffer = gl.createBuffer();  
+                if (!vertexSizeBuffer) {
+                    console.log('Failed to create the buffer object');
+                    return -1;
+                }
+
+                // Bind the buffer object to target
+                gl.bindBuffer(gl.ARRAY_BUFFER, vertexSizeBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+                // Pass the position of a point to a_Position variable
+                var a_Position = gl.getAttribLocation(gl.program, 'a_Position');
+                if (a_Position < 0) {
+                    console.log('Failed to get the storage location of a_Position');
+                    return -1;
+                }
+
+                // void gl.vertexAttribPointer(index, size, type, normalized, stride, offset);
+                gl.vertexAttribPointer(a_Position, 2, gl.FLOAT, false, 0, 0);
+
+                // Pass the width and hight of the <canvas>
+                const f_Width = gl.getUniformLocation(gl.program, 'f_Width');
+                const f_Height = gl.getUniformLocation(gl.program, 'f_Height');
+
+                gl.uniform1f(f_Width, gl.drawingBufferWidth)
+                gl.uniform1f(f_Height, gl.drawingBufferHeight)
+
+
+                // Enable the generic vertex attribute array
+                gl.enableVertexAttribArray(a_Position);
+                
+                // Unbind the buffer object, 
+                // why?
+                gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+                return n;
+            }
+
+            main()
+        </script>
+    </body>
+</html>  
